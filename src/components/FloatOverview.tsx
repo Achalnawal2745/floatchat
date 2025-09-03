@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, MapPin, Calendar, Building } from "lucide-react";
+import { buildApiUrl, API_CONFIG } from "@/config/api";
 
 interface FloatData {
   float_id: number;
@@ -23,13 +24,13 @@ export const FloatOverview = () => {
   useEffect(() => {
     const fetchFloats = async () => {
       try {
-        const response = await fetch('/api/floats?limit=6');
+        const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.FLOATS, { limit: '6' }));
         if (response.ok) {
           const data = await response.json();
           setFloats(data.floats || []);
           
           // Get total count
-          const countResponse = await fetch('/api/query', {
+          const countResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.QUERY), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: "how many floats" })

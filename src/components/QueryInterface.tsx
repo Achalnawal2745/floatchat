@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { buildApiUrl, API_CONFIG } from "@/config/api";
 
 interface QueryInterfaceProps {
   onQueryResult: (result: any) => void;
@@ -30,7 +31,7 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/query', {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.QUERY), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,11 +42,17 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({
         }),
       });
 
+      console.log('Query response status:', response.status);
+      console.log('Query response headers:', response.headers);
+
       if (!response.ok) {
-        throw new Error('Query failed');
+        const errorText = await response.text();
+        console.error('Query failed with response:', errorText);
+        throw new Error(`Query failed with status ${response.status}`);
       }
 
       const result = await response.json();
+      console.log('Query result:', result);
       onQueryResult(result);
       
       if (result.suggestions) {
@@ -59,9 +66,10 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({
         description: "Your oceanographic data query has been completed.",
       });
     } catch (error) {
+      console.error('Query error:', error);
       toast({
-        title: "Query failed",
-        description: "Please check your connection and try again.",
+        title: "Connection Error",
+        description: "Cannot connect to ARGO backend. Make sure your FastAPI server is running on the correct port.",
         variant: "destructive",
       });
     } finally {

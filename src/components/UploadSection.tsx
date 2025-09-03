@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { buildApiUrl, API_CONFIG } from "@/config/api";
 import { Upload, File, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -43,7 +44,7 @@ export const UploadSection = () => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const response = await fetch('/api/upload_netcdf', {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_NETCDF), {
         method: 'POST',
         body: formData,
       });

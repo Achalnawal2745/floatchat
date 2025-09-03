@@ -4,6 +4,7 @@ import { QueryInterface } from "@/components/QueryInterface";
 import { DataVisualization } from "@/components/DataVisualization";
 import { FloatOverview } from "@/components/FloatOverview";
 import { UploadSection } from "@/components/UploadSection";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
 
 const Index = () => {
   const [queryResult, setQueryResult] = useState<any>(null);
@@ -32,6 +33,9 @@ const Index = () => {
             salinity, and pressure profiles from around the globe.
           </p>
         </section>
+
+        {/* Connection Status */}
+        <ConnectionStatus />
 
         {/* Query Interface */}
         <QueryInterface 

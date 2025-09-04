@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,18 +87,13 @@ export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
     shadowSize: [41, 41]
   });
 
-  // Fit map to bounds once when available (guarded by depsKey)
-  const FitBounds: React.FC<{ bounds: [[number, number], [number, number]]; depsKey: string }> = ({ bounds, depsKey }) => {
-    const map = useMap();
-    const lastKeyRef = useRef<string | null>(null);
-    useEffect(() => {
-      if (depsKey && lastKeyRef.current !== depsKey) {
-        map.fitBounds(bounds as any, { padding: [50, 50] });
-        lastKeyRef.current = depsKey;
-      }
-    }, [map, depsKey]);
-    return null;
-  };
+  const mapRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (mapRef.current && bounds) {
+      mapRef.current.fitBounds(bounds as any, { padding: [50, 50] });
+    }
+  }, [boundsKey]);
 
   return (
     <Card className="border-accent/20">
@@ -111,8 +106,10 @@ export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
       <CardContent>
         <div className="relative">
           <MapContainer 
+            key={boundsKey || 'default'}
             center={[0, 0]} 
             zoom={2} 
+            ref={mapRef as any}
             className="w-full h-[400px] rounded-lg shadow-lg z-0"
             style={{ minHeight: '400px' }}
           >
@@ -154,7 +151,7 @@ export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
                 </Popup>
               </Marker>
             )}
-            {bounds && <FitBounds bounds={bounds} depsKey={boundsKey} />} 
+             
           </MapContainer>
           
           {/* Path stats overlay */}

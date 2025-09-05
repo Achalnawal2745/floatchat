@@ -1,7 +1,17 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Calendar } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from 'recharts';
 
 interface TimeseriesChartProps {
   data: any[];
@@ -13,10 +23,16 @@ interface TimeseriesChartProps {
 
 export const TimeseriesChart: React.FC<TimeseriesChartProps> = ({ data, spec }) => {
   const { x, y } = spec;
-  
-  const validData = data.filter(d => d[x] && d[y] != null);
-  
-  if (validData.length === 0) {
+
+  const rows = useMemo(() => (
+    (data || [])
+      .filter(d => d && d[x] != null && d[y] != null)
+      .map(d => ({ t: new Date(d[x]), v: Number(d[y]) }))
+      .filter(d => d.t.toString() !== 'Invalid Date' && Number.isFinite(d.v))
+      .sort((a, b) => a.t.getTime() - b.t.getTime())
+  ), [data, x, y]);
+
+  if (rows.length === 0) {
     return (
       <Card className="border-warning/20">
         <CardContent className="p-6 text-center text-muted-foreground">
@@ -26,13 +42,11 @@ export const TimeseriesChart: React.FC<TimeseriesChartProps> = ({ data, spec }) 
     );
   }
 
-  const values = validData.map(d => parseFloat(d[y]));
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
-  const avgValue = values.reduce((a, b) => a + b, 0) / values.length;
-  
-  const firstDate = new Date(validData[0][x]);
-  const lastDate = new Date(validData[validData.length - 1][x]);
+  let minValue = Infinity, maxValue = -Infinity, sum = 0;
+  for (const r of rows) { if (r.v < minValue) minValue = r.v; if (r.v > maxValue) maxValue = r.v; sum += r.v; }
+  const avgValue = sum / rows.length;
+  const firstDate = rows[0].t;
+  const lastDate = rows[rows.length - 1].t;
   const duration = Math.abs(lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24);
 
   const getUnit = (param: string) => {
@@ -58,11 +72,10 @@ export const TimeseriesChart: React.FC<TimeseriesChartProps> = ({ data, spec }) 
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Statistics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-3 bg-primary/5 rounded-lg border border-primary/20">
               <div className="text-sm font-medium text-primary">Points</div>
-              <div className="text-lg font-bold">{validData.length}</div>
+              <div className="text-lg font-bold">{rows.length}</div>
             </div>
             <div className="text-center p-3 bg-success/5 rounded-lg border border-success/20">
               <div className="text-sm font-medium text-success">Min</div>
@@ -78,62 +91,19 @@ export const TimeseriesChart: React.FC<TimeseriesChartProps> = ({ data, spec }) 
             </div>
           </div>
 
-          {/* Simulated Chart Area */}
-          <div className="bg-gradient-to-br from-success/5 to-accent/5 rounded-lg p-6 min-h-[300px] relative overflow-hidden">
-            <div className="absolute inset-4 border-l-2 border-b-2 border-muted-foreground/20">
-              {/* Y-axis labels */}
-              <div className="absolute -left-12 top-0 text-xs text-muted-foreground">
-                {maxValue.toFixed(1)}
-              </div>
-              <div className="absolute -left-12 top-1/2 text-xs text-muted-foreground">
-                {avgValue.toFixed(1)}
-              </div>
-              <div className="absolute -left-12 bottom-0 text-xs text-muted-foreground">
-                {minValue.toFixed(1)}
-              </div>
-              
-              {/* X-axis labels */}
-              <div className="absolute -bottom-8 left-0 text-xs text-muted-foreground">
-                {firstDate.toLocaleDateString()}
-              </div>
-              <div className="absolute -bottom-8 right-0 text-xs text-muted-foreground">
-                {lastDate.toLocaleDateString()}
-              </div>
-            </div>
-            
-            {/* Simulated timeseries line */}
-            <div className="absolute inset-4 flex items-end">
-              <div className="w-full h-full relative">
-                {/* Background grid */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="h-full w-full bg-gradient-to-r from-transparent via-muted-foreground to-transparent"></div>
-                </div>
-                
-                {/* Data visualization simulation */}
-                <div className="absolute inset-0 flex items-end space-x-1">
-                  {Array.from({ length: 20 }, (_, i) => {
-                    const height = 20 + Math.sin(i * 0.5) * 30 + Math.random() * 20;
-                    return (
-                      <div 
-                        key={i}
-                        className="flex-1 bg-gradient-to-t from-success to-accent rounded-t opacity-60"
-                        style={{ height: `${height}%` }}
-                      />
-                    );
-                  })}
-                </div>
-                
-                {/* Trend line */}
-                <div className="absolute inset-0 bg-gradient-to-r from-success/30 via-primary/30 to-accent/30 rounded-full blur-lg opacity-50"></div>
-              </div>
-            </div>
-            
-            <div className="absolute top-4 right-4 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
-              Interactive chart would be rendered here
-            </div>
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={rows} margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                <XAxis dataKey={(d) => (d as any).t} type="number" scale="time" tickFormatter={(v) => new Date(v).toLocaleDateString()} tick={{ fontSize: 12 }} />
+                <YAxis dataKey="v" tick={{ fontSize: 12 }} />
+                <Tooltip labelFormatter={(v) => new Date(v as number).toLocaleString()} formatter={(val) => [`${val} ${getUnit(y)}`, y]} />
+                <Legend />
+                <Line type="monotone" dataKey="v" name={y} stroke="#3b82f6" dot={false} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
-          {/* Date Range Info */}
           <div className="flex justify-between items-center text-sm text-muted-foreground">
             <span>Start: {firstDate.toLocaleString()}</span>
             <span>End: {lastDate.toLocaleString()}</span>

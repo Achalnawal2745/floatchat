@@ -6,12 +6,56 @@ import { ProfileChart } from "./visualizations/ProfileChart";
 import { TimeseriesChart } from "./visualizations/TimeseriesChart";
 import { DataTable } from "./visualizations/DataTable";
 import { TrendingUp, Map, BarChart3, Database } from "lucide-react";
+import { buildApiUrl } from "@/config/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface DataVisualizationProps {
   result: any;
 }
 
 export const DataVisualization: React.FC<DataVisualizationProps> = ({ result }) => {
+  const { toast } = useToast();
+
+  const handleExport = async (format: string, endpoint: string | unknown) => {
+    try {
+      if (typeof endpoint !== 'string') return;
+      const url = buildApiUrl(endpoint);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+
+      const cd = res.headers.get('content-disposition') || '';
+      const guessedName = cd.match(/filename=\"?([^\";]+)\"?/i)?.[1] || `export.${format}`;
+      const ct = res.headers.get('content-type') || '';
+
+      if (ct.includes('application/json')) {
+        const json = await res.json();
+        if (json && json.content) {
+          const blob = new Blob([json.content], { type: 'text/csv;charset=utf-8' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = json.filename || guessedName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
+          toast({ title: 'Export ready', description: `${format.toUpperCase()} downloaded` });
+          return;
+        }
+      }
+
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = guessedName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      toast({ title: 'Export ready', description: `${format.toUpperCase()} downloaded` });
+    } catch (e: any) {
+      toast({ title: 'Export failed', description: e?.message || 'Unable to download', variant: 'destructive' });
+    }
+  };
   const getIntentIcon = (intent: string) => {
     switch (intent) {
       case "profile_path":
@@ -76,7 +120,18 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({ result }) 
             {result.viz.kind === "profile" && (
               <ProfileChart data={result.data} spec={result.viz.spec} />
             )}
-            {result.viz.kind === "timeseries" && (
+            {result.viz.kind === "profile_comparison" && (
+              <ProfileChart
+                data={result.data}
+                spec={{
+                  y: result.viz.spec.y,
+                  x_opts: [result.viz.spec.x],
+                  invert_y: result.viz.spec.invert_y,
+                  group_by: result.viz.spec.group_by,
+                }}
+              />
+            )}
+            {(result.viz.kind === "timeseries" || result.viz.kind === "temporal") && (
               <TimeseriesChart data={result.data} spec={result.viz.spec} />
             )}
           </div>
@@ -116,6 +171,7 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({ result }) 
                   key={format}
                   variant="outline"
                   className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-smooth"
+                  onClick={() => handleExport(format, url)}
                 >
                   {format.toUpperCase()}
                 </Badge>

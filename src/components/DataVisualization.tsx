@@ -202,6 +202,7 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({ result }) 
         {/* Filters */}
         {result.viz && (
           <div className="p-4 rounded-lg border bg-muted/5 space-y-3">
+            <div className="text-sm font-medium text-muted-foreground">Filters</div>
             {(result.viz.kind === 'timeseries' || result.viz.kind === 'temporal') && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                 <div>

@@ -201,57 +201,62 @@ export const FloatOverview = () => {
       </CardHeader>
       
       <CardContent>
-        {activeFloats.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active floats found.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeFloats.map((float_data) => {
-              const lat = float_data.latest_lat ?? float_data.deployment_lat;
-              const lon = float_data.latest_lon ?? float_data.deployment_lon;
-              const dateStr = float_data.latest_date || float_data.deployment_date;
-              return (
-                <Card key={float_data.float_id} className="border-l-4 border-l-primary hover:shadow-glow transition-smooth">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-lg">Float {float_data.float_id}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {floats.map((float_data) => {
+            const lat = float_data.latest_lat ?? float_data.deployment_lat;
+            const lon = float_data.latest_lon ?? float_data.deployment_lon;
+            const dateStr = float_data.latest_date || float_data.deployment_date;
+            const cardBorder = float_data.is_active ? "border-l-success" : "border-l-muted";
+            return (
+              <Card key={float_data.float_id} className={`border-l-4 ${cardBorder} hover:shadow-glow transition-smooth`}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-lg">Float {float_data.float_id}</h3>
+                    <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">
                         {float_data.project_name}
                       </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${float_data.is_active ? "border-success text-success" : "border-muted-foreground text-muted-foreground"}`}
+                      >
+                        {float_data.is_active ? "Active" : "Inactive"}
+                      </Badge>
                     </div>
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center space-x-2 text-muted-foreground">
-                        <Building className="h-4 w-4" />
-                        <span>{float_data.institution}</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 text-muted-foreground">
-                        <MapPin className="h-4 w-4" />
-                        <span>
-                          {Number.isFinite(lat) && Number.isFinite(lon) ? `${(lat as number).toFixed(2)}°, ${(lon as number).toFixed(2)}°` : 'Unknown'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span>
-                          {dateStr ? new Date(dateStr).toLocaleDateString() : 'Unknown'}
-                        </span>
-                      </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center space-x-2 text-muted-foreground">
+                      <Building className="h-4 w-4" />
+                      <span>{float_data.institution}</span>
                     </div>
-                    
-                    <div className="pt-2">
-                      <p className="text-sm font-medium">PI: {float_data.pi_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Data Center: {float_data.data_center}
-                      </p>
+
+                    <div className="flex items-center space-x-2 text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      <span>
+                        {Number.isFinite(lat) && Number.isFinite(lon) ? `${(lat as number).toFixed(2)}°, ${(lon as number).toFixed(2)}°` : 'Unknown'}
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+
+                    <div className="flex items-center space-x-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        {dateStr ? new Date(dateStr).toLocaleDateString() : 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <p className="text-sm font-medium">PI: {float_data.pi_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Data Center: {float_data.data_center}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );

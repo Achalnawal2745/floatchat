@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, MapPin, Calendar, Building } from "lucide-react";
-import { buildApiUrl, API_CONFIG } from "@/config/api";
+import { buildApiUrl, API_CONFIG, getApiBaseUrl } from "@/config/api";
 
 interface FloatData {
   float_id: number;
@@ -17,6 +17,7 @@ interface FloatData {
   latest_lat?: number;
   latest_lon?: number;
   latest_date?: string;
+  is_active?: boolean;
 }
 
 const extractLatest = (details: any) => {
@@ -64,6 +65,39 @@ const extractLatest = (details: any) => {
   return { lat, lon, date } as { lat?: number; lon?: number; date?: string };
 };
 
+const sameDay = (a?: string, b?: string) => {
+  if (!a || !b) return false;
+  const da = new Date(a);
+  const db = new Date(b);
+  if (isNaN(+da) || isNaN(+db)) return false;
+  return da.getUTCFullYear() === db.getUTCFullYear() && da.getUTCMonth() === db.getUTCMonth() && da.getUTCDate() === db.getUTCDate();
+};
+
+const moved = (aLat?: number, aLon?: number, bLat?: number, bLon?: number) => {
+  if (![aLat, aLon, bLat, bLon].every((v) => typeof v === "number" && Number.isFinite(v as number))) return false;
+  const dLat = Math.abs((aLat as number) - (bLat as number));
+  const dLon = Math.abs((aLon as number) - (bLon as number));
+  return dLat > 1e-4 || dLon > 1e-4;
+};
+
+const tryFetchDetails = async (floatId: number) => {
+  const base = getApiBaseUrl().replace(/\/$/, "");
+  const candidates = [
+    `${base}${API_CONFIG.ENDPOINTS.FLOAT_DETAILS}/${floatId}`,
+    buildApiUrl(API_CONFIG.ENDPOINTS.FLOAT_DETAILS, { float_id: String(floatId) }),
+    `${base}${API_CONFIG.ENDPOINTS.FLOATS}/${floatId}`,
+    buildApiUrl(API_CONFIG.ENDPOINTS.FLOATS, { float_id: String(floatId) }),
+    buildApiUrl(API_CONFIG.ENDPOINTS.FLOATS, { id: String(floatId) }),
+  ];
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return await r.json();
+    } catch {}
+  }
+  return null;
+};
+
 export const FloatOverview = () => {
   const [floats, setFloats] = useState<FloatData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,24 +114,32 @@ export const FloatOverview = () => {
           const enriched = await Promise.all(
             baseFloats.map(async (f) => {
               try {
-                const r = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.FLOAT_DETAILS, { float_id: String(f.float_id) }));
-                if (!r.ok) return f;
-                const details = await r.json();
-                const latest = extractLatest(details || {});
+                const details = await tryFetchDetails(f.float_id);
+                const latest = details ? extractLatest(details || {}) : {};
+                const latest_lat = (latest as any).lat ?? f.deployment_lat;
+                const latest_lon = (latest as any).lon ?? f.deployment_lon;
+                const latest_date = (latest as any).date ?? f.deployment_date;
+
+                const active = Boolean(
+                  (latest_date && !sameDay(latest_date, f.deployment_date)) ||
+                  moved(latest_lat, latest_lon, f.deployment_lat, f.deployment_lon)
+                );
+
                 return {
                   ...f,
-                  latest_lat: latest.lat ?? f.deployment_lat,
-                  latest_lon: latest.lon ?? f.deployment_lon,
-                  latest_date: latest.date ?? f.deployment_date,
+                  latest_lat,
+                  latest_lon,
+                  latest_date,
+                  is_active: active,
                 } as FloatData;
               } catch {
-                return f;
+                return { ...f, is_active: false } as FloatData;
               }
             })
           );
 
           setFloats(enriched);
-
+          
           const countResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.QUERY), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -117,6 +159,8 @@ export const FloatOverview = () => {
 
     fetchFloats();
   }, []);
+
+  const activeFloats = useMemo(() => floats.filter(f => f.is_active), [floats]);
 
   if (loading) {
     return (
@@ -151,59 +195,63 @@ export const FloatOverview = () => {
             <span>Active Float Network</span>
           </CardTitle>
           <Badge variant="secondary" className="text-lg px-3 py-1">
-            {totalCount} Total Floats
+            {activeFloats.length} Active • {totalCount} Total
           </Badge>
         </div>
       </CardHeader>
-
+      
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {floats.map((float_data) => {
-            const lat = (float_data as any).latest_lat ?? float_data.deployment_lat;
-            const lon = (float_data as any).latest_lon ?? float_data.deployment_lon;
-            const dateStr = (float_data as any).latest_date || float_data.deployment_date;
-            return (
-              <Card key={float_data.float_id} className="border-l-4 border-l-primary hover:shadow-glow transition-smooth">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-lg">Float {float_data.float_id}</h3>
-                    <Badge variant="outline" className="text-xs">
-                      {float_data.project_name}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2 text-muted-foreground">
-                      <Building className="h-4 w-4" />
-                      <span>{float_data.institution}</span>
+        {activeFloats.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No active floats found.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeFloats.map((float_data) => {
+              const lat = float_data.latest_lat ?? float_data.deployment_lat;
+              const lon = float_data.latest_lon ?? float_data.deployment_lon;
+              const dateStr = float_data.latest_date || float_data.deployment_date;
+              return (
+                <Card key={float_data.float_id} className="border-l-4 border-l-primary hover:shadow-glow transition-smooth">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-lg">Float {float_data.float_id}</h3>
+                      <Badge variant="outline" className="text-xs">
+                        {float_data.project_name}
+                      </Badge>
                     </div>
-
-                    <div className="flex items-center space-x-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      <span>
-                        {Number.isFinite(lat) && Number.isFinite(lon) ? `${lat.toFixed(2)}°, ${lon.toFixed(2)}°` : 'Unknown'}
-                      </span>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center space-x-2 text-muted-foreground">
+                        <Building className="h-4 w-4" />
+                        <span>{float_data.institution}</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span>
+                          {Number.isFinite(lat) && Number.isFinite(lon) ? `${(lat as number).toFixed(2)}°, ${(lon as number).toFixed(2)}°` : 'Unknown'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span>
+                          {dateStr ? new Date(dateStr).toLocaleDateString() : 'Unknown'}
+                        </span>
+                      </div>
                     </div>
-
-                    <div className="flex items-center space-x-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>
-                        {dateStr ? new Date(dateStr).toLocaleDateString() : 'Unknown'}
-                      </span>
+                    
+                    <div className="pt-2">
+                      <p className="text-sm font-medium">PI: {float_data.pi_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Data Center: {float_data.data_center}
+                      </p>
                     </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <p className="text-sm font-medium">PI: {float_data.pi_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Data Center: {float_data.data_center}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

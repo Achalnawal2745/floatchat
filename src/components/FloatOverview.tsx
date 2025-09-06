@@ -21,10 +21,19 @@ interface FloatData {
 }
 
 const extractLatest = (details: any) => {
+  const toNum = (v: any): number | undefined => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string") {
+      const n = parseFloat(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return undefined;
+  };
   const pickNum = (o: any, keys: string[]): number | undefined => {
     for (const k of keys) {
       const v = o?.[k];
-      if (typeof v === "number" && Number.isFinite(v)) return v;
+      const n = toNum(v);
+      if (n != null) return n;
     }
     return undefined;
   };
@@ -32,13 +41,27 @@ const extractLatest = (details: any) => {
     for (const k of keys) {
       const v = o?.[k];
       if (typeof v === "string" && !Number.isNaN(Date.parse(v))) return v;
+      if (typeof v === "number") {
+        const d = new Date(v);
+        if (!Number.isNaN(+d)) return d.toISOString();
+      }
     }
     return undefined;
   };
 
-  const nestedPositions = ["position", "latest_position", "last_position", "current_position"];
-  let lat = pickNum(details, ["current_lat", "latest_lat", "last_lat"]);
-  let lon = pickNum(details, ["current_lon", "latest_lon", "last_lon"]);
+  const nestedPositions = [
+    "position",
+    "latest_position",
+    "last_position",
+    "current_position",
+    "most_recent",
+    "last_known_position"
+  ];
+
+  // Top-level picks, including direct lat/lon/latitude/longitude
+  let lat = pickNum(details, ["current_lat", "latest_lat", "last_lat", "lat", "latitude"]);
+  let lon = pickNum(details, ["current_lon", "latest_lon", "last_lon", "lon", "longitude"]);
+
   for (const np of nestedPositions) {
     if (lat == null) lat = pickNum(details?.[np], ["lat", "latitude"]);
     if (lon == null) lon = pickNum(details?.[np], ["lon", "longitude"]);
@@ -49,12 +72,22 @@ const extractLatest = (details: any) => {
     if (!date) date = pickDate(details?.[np], ["date", "time", "timestamp"]);
   }
 
-  if ((!lat || !lon || !date) && Array.isArray(details?.profiles)) {
+  // Fallback: positions array (use last)
+  if ((lat == null || lon == null || !date) && Array.isArray(details?.positions) && details.positions.length) {
+    const last = details.positions[details.positions.length - 1];
+    if (lat == null) lat = pickNum(last, ["lat", "latitude"]);
+    if (lon == null) lon = pickNum(last, ["lon", "longitude"]);
+    if (!date) date = pickDate(last, ["date", "time", "timestamp"]);
+  }
+
+  // Fallback: profiles array (pick most recent by date)
+  if ((lat == null || lon == null || !date) && Array.isArray(details?.profiles)) {
     const candidates = details.profiles
       .map((p: any) => p?.date || p?.time || p?.timestamp)
-      .filter((d: any) => typeof d === "string" && !Number.isNaN(Date.parse(d)));
+      .filter((d: any) => (typeof d === "string" && !Number.isNaN(Date.parse(d))) || typeof d === "number");
     if (candidates.length) {
-      const maxDate = candidates.reduce((a: string, b: string) => (new Date(a) > new Date(b) ? a : b));
+      const normalized = candidates.map((d: any) => (typeof d === "number" ? new Date(d).toISOString() : d));
+      const maxDate = normalized.reduce((a: string, b: string) => (new Date(a) > new Date(b) ? a : b));
       date = date || maxDate;
       const latestProfile = details.profiles.find((p: any) => (p?.date || p?.time || p?.timestamp) === maxDate) || details.profiles[0];
       if (lat == null) lat = pickNum(latestProfile, ["lat", "latitude"]);

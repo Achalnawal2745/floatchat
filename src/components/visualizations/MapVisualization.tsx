@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Map as MapIcon } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup } from 'react-leaflet';
@@ -66,10 +67,29 @@ const WhenReadyFitBounds: React.FC<{ bounds?: LatLngBoundsExpression }>
 export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
   const { line, points, start, end } = data;
 
-  const mapState = useMemo(() => computeMapState(line, points), [line, points]);
-  const pathCoords: LatLngExpression[] = useMemo(
-    () => (line ? line.map((p) => [p.lat, p.lon]) : []),
+  const toNum = (v: any) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const safeLine = useMemo(
+    () => (line ?? [])
+      .map((p) => ({ lat: toNum(p.lat), lon: toNum(p.lon) }))
+      .filter((p) => p.lat !== null && p.lon !== null) as { lat: number; lon: number }[],
     [line]
+  );
+
+  const validPoints = useMemo(
+    () => (points ?? [])
+      .map((p) => ({ lat: toNum(p.lat), lon: toNum(p.lon), float_id: (p as any).float_id }))
+      .filter((p) => p.lat !== null && p.lon !== null) as { lat: number; lon: number; float_id?: number }[],
+    [points]
+  );
+
+  const mapState = useMemo(() => computeMapState(safeLine, validPoints), [safeLine, validPoints]);
+  const pathCoords: LatLngExpression[] = useMemo(
+    () => safeLine.map((p) => [p.lat, p.lon] as [number, number]),
+    [safeLine]
   );
 
   return (
@@ -102,35 +122,35 @@ export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
               <Polyline positions={pathCoords} pathOptions={{ color: 'hsl(var(--accent))', weight: 3 }} />
             )}
 
-            {start && (
+            {start && Number.isFinite(Number(start.lat)) && Number.isFinite(Number(start.lon)) && (
               <CircleMarker
-                center={[start.lat, start.lon]}
+                center={[Number(start.lat), Number(start.lon)]}
                 radius={6}
                 pathOptions={{ color: 'hsl(var(--success))', fillColor: 'hsl(var(--success))', fillOpacity: 1 }}
               >
                 <Popup>
                   <strong>Start</strong><br />
-                  Lat: {start.lat.toFixed(4)}<br />
-                  Lon: {start.lon.toFixed(4)}
+                  Lat: {Number(start.lat).toFixed(4)}<br />
+                  Lon: {Number(start.lon).toFixed(4)}
                 </Popup>
               </CircleMarker>
             )}
 
-            {end && (
+            {end && Number.isFinite(Number(end.lat)) && Number.isFinite(Number(end.lon)) && (
               <CircleMarker
-                center={[end.lat, end.lon]}
+                center={[Number(end.lat), Number(end.lon)]}
                 radius={6}
                 pathOptions={{ color: 'hsl(var(--destructive))', fillColor: 'hsl(var(--destructive))', fillOpacity: 1 }}
               >
                 <Popup>
                   <strong>End</strong><br />
-                  Lat: {end.lat.toFixed(4)}<br />
-                  Lon: {end.lon.toFixed(4)}
+                  Lat: {Number(end.lat).toFixed(4)}<br />
+                  Lon: {Number(end.lon).toFixed(4)}
                 </Popup>
               </CircleMarker>
             )}
 
-            {points && points.map((pt, idx) => (
+            {validPoints.map((pt, idx) => (
               <CircleMarker
                 key={`${pt.lat}-${pt.lon}-${idx}`}
                 center={[pt.lat, pt.lon]}
@@ -140,8 +160,8 @@ export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
                 <Popup>
                   <div className="text-sm">
                     {pt.float_id ? (<div><strong>Float</strong>: {pt.float_id}</div>) : null}
-                    <div>Lat: {pt.lat.toFixed(4)}</div>
-                    <div>Lon: {pt.lon.toFixed(4)}</div>
+                    <div>Lat: {Number(pt.lat).toFixed(4)}</div>
+                    <div>Lon: {Number(pt.lon).toFixed(4)}</div>
                   </div>
                 </Popup>
               </CircleMarker>
@@ -154,15 +174,15 @@ export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
             <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg border p-3 shadow-lg">
               <div className="text-sm space-y-1">
                 <div className="font-semibold">{line.length} waypoints</div>
-                {start && end && (
+                {start && end && Number.isFinite(Number(start.lat)) && Number.isFinite(Number(start.lon)) && Number.isFinite(Number(end.lat)) && Number.isFinite(Number(end.lon)) && (
                   <>
                     <div className="flex items-center space-x-2 text-xs">
                       <div className="h-2 w-2 rounded-full bg-success"></div>
-                      <span>Start: {start.lat.toFixed(2)}°, {start.lon.toFixed(2)}°</span>
+                      <span>Start: {Number(start.lat).toFixed(2)}°, {Number(start.lon).toFixed(2)}°</span>
                     </div>
                     <div className="flex items-center space-x-2 text-xs">
                       <div className="h-2 w-2 rounded-full bg-destructive"></div>
-                      <span>End: {end.lat.toFixed(2)}°, {end.lon.toFixed(2)}°</span>
+                      <span>End: {Number(end.lat).toFixed(2)}°, {Number(end.lon).toFixed(2)}°</span>
                     </div>
                   </>
                 )}
@@ -170,10 +190,10 @@ export const MapVisualization: React.FC<MapVisualizationProps> = ({ data }) => {
             </div>
           )}
 
-          {points && points.length > 0 && (
+          {validPoints.length > 0 && (
             <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg border p-3 shadow-lg">
               <div className="text-sm space-y-1">
-                <div className="font-semibold">{points.length} positions</div>
+                <div className="font-semibold">{validPoints.length} positions</div>
               </div>
             </div>
           )}

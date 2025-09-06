@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import React, { useMemo } from "react";
+import { useMemo } from "react";
+import type React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Map as MapIcon } from "lucide-react";
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup } from 'react-leaflet';

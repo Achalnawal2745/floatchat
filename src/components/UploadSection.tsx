@@ -131,8 +131,14 @@ export const UploadSection = () => {
       </CardHeader>
       
       <CardContent className="space-y-6">
-        <div 
-          className={`border-2 rounded-lg p-8 text-center transition-smooth cursor-pointer ${getStatusColor()}`}
+        {uploadAvailable === false && (
+          <div className="p-4 rounded-lg border border-warning/30 bg-warning/5 text-sm">
+            NetCDF upload is disabled because the backend does not expose an upload endpoint. If needed, ingest data via the backend's /ingest_metadata API.
+          </div>
+        )}
+
+        <div
+          className={`border-2 rounded-lg p-8 text-center transition-smooth ${uploadAvailable === false ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${getStatusColor()}`}
           onClick={handleFileSelect}
         >
           <div className="space-y-4">
@@ -145,15 +151,17 @@ export const UploadSection = () => {
                 </div>
               )}
             </div>
-            
+
             <div>
               <h3 className="text-lg font-semibold">
                 {isUploading ? "Uploading..." : "Drop NetCDF files here"}
               </h3>
               <p className="text-muted-foreground">
-                {isUploading 
-                  ? "Processing your oceanographic data..." 
-                  : "Click to browse or drag and drop NetCDF (.nc) files"
+                {uploadAvailable === false
+                  ? "Upload unavailable on current backend"
+                  : isUploading
+                    ? "Processing your oceanographic data..."
+                    : "Click to browse or drag and drop NetCDF (.nc) files"
                 }
               </p>
             </div>

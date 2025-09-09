@@ -9,7 +9,7 @@ import { ConnectionStatus } from "@/components/ConnectionStatus";
 const Index = () => {
   const [queryResult, setQueryResult] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string>("");
-  const [connected, setConnected] = useState<boolean>(true);
+  const [connected, setConnected] = useState<boolean>(false);
 
   const handleQueryResult = (result: any) => {
     setQueryResult(result);

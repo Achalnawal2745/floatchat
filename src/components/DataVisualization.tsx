@@ -47,9 +47,22 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({ result }) 
   useEffect(() => {
     if (!result?.viz) return;
     if (result.viz.kind === "profile" || result.viz.kind === "profile_comparison") {
-      const xOpts: string[] = result.viz.spec?.x_opts || (result.viz.spec?.x ? [result.viz.spec.x] : []);
-      setProfileParam(result.viz.spec?.x || xOpts[0]);
-      setInvertY(result.viz.spec?.invert_y ?? false);
+      const rows = Array.isArray(result.data) ? result.data : [];
+      const first = rows.find((r: any) => r && typeof r === 'object') || {};
+      const keys = Object.keys(first);
+      const yGuess = result.viz.spec?.y || (keys.includes('depth_m') ? 'depth_m' : keys.includes('pressure') ? 'pressure' : (keys.find(k => /depth|press/i.test(k)) || 'depth_m'));
+      const preferred = ['temperature','salinity','pressure'];
+      const numericKeys = keys.filter(k => typeof first[k] === 'number' || (rows.some((r:any)=> Number.isFinite(Number(r?.[k])))));
+      const ordered = [...preferred.filter(k => keys.includes(k)), ...numericKeys.filter(k => !preferred.includes(k))].filter(k => k !== yGuess);
+      const xOpts: string[] = result.viz.spec?.x_opts || ordered;
+      const initialParam = result.viz.spec?.x || xOpts[0];
+      setProfileParam(initialParam);
+      const invertDefault = result.viz.spec?.invert_y ?? (yGuess === 'depth_m' || /depth|press/i.test(String(yGuess)));
+      setInvertY(invertDefault);
+      // Patch result.viz.spec to include inferred y/x_opts for downstream renderers
+      (result.viz.spec ||= {}).y = yGuess;
+      (result.viz.spec ||= {}).x_opts = xOpts;
+      if (initialParam) (result.viz.spec ||= {}).x = initialParam;
     }
     if (result.viz.kind === "timeseries" || result.viz.kind === "temporal") {
       if (tsBounds) {
@@ -160,13 +173,21 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({ result }) 
   // Build spec overrides for profile charts
   const profileSpec = useMemo(() => {
     if (!result?.viz || (result.viz.kind !== 'profile' && result.viz.kind !== 'profile_comparison')) return undefined;
+    const rows = Array.isArray(result.data) ? result.data : [];
+    const first = rows.find((r: any) => r && typeof r === 'object') || {};
+    const keys = Object.keys(first);
     const base = result.viz.spec || {};
-    const xOpts: string[] = base.x_opts || (base.x ? [base.x] : []);
+    const yGuess = base.y || (keys.includes('depth_m') ? 'depth_m' : keys.includes('pressure') ? 'pressure' : (keys.find(k => /depth|press/i.test(k)) || 'depth_m'));
+    const preferred = ['temperature','salinity','pressure'];
+    const numericKeys = keys.filter(k => typeof first[k] === 'number' || (rows.some((r:any)=> Number.isFinite(Number(r?.[k])))));
+    const ordered = [...preferred.filter(k => keys.includes(k)), ...numericKeys.filter(k => !preferred.includes(k))].filter(k => k !== yGuess);
+    const xOpts: string[] = base.x_opts || ordered;
     return {
+      y: yGuess,
       ...base,
       x_opts: xOpts,
       x: profileParam || base.x || xOpts[0],
-      invert_y: invertY ?? base.invert_y,
+      invert_y: invertY ?? base.invert_y ?? (yGuess === 'depth_m' || /depth|press/i.test(String(yGuess))),
     } as any;
   }, [result, profileParam, invertY]);
 
@@ -269,12 +290,12 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({ result }) 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                 <div>
                   <Label>Parameter</Label>
-                  <Select value={profileParam} onValueChange={setProfileParam}>
+                  <Select value={profileParam} onValueChange={setProfileParam} disabled={!profileSpec?.x_opts?.length}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select parameter" />
+                      <SelectValue placeholder={profileSpec?.x_opts?.length ? "Select parameter" : "No parameters available"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {(result.viz.spec?.x_opts || (result.viz.spec?.x ? [result.viz.spec.x] : [])).map((opt: string) => (
+                      {(profileSpec?.x_opts && profileSpec.x_opts.length ? profileSpec.x_opts : []).map((opt: string) => (
                         <SelectItem key={opt} value={opt} className="capitalize">{opt}</SelectItem>
                       ))}
                     </SelectContent>

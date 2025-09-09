@@ -11,10 +11,32 @@ export const UploadSection = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
+  const [uploadAvailable, setUploadAvailable] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    let cancelled = false;
+    const checkEndpoint = async () => {
+      try {
+        const url = buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_NETCDF);
+        const resp = await fetch(url, { method: 'OPTIONS' });
+        if (!cancelled) {
+          // Treat 404 as unavailable; 200/204/405 likely means route exists or server responds
+          setUploadAvailable(resp.status !== 404);
+        }
+      } catch {
+        if (!cancelled) setUploadAvailable(false);
+      }
+    };
+    checkEndpoint();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleFileSelect = () => {
+    if (uploadAvailable === false) return;
     fileInputRef.current?.click();
   };
 
@@ -39,7 +61,6 @@ export const UploadSection = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Simulate progress for better UX
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
@@ -71,7 +92,6 @@ export const UploadSection = () => {
       });
     } finally {
       setIsUploading(false);
-      // Reset after a delay
       setTimeout(() => {
         setUploadProgress(0);
         setUploadStatus("idle");

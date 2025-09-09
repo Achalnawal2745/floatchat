@@ -53,7 +53,7 @@ const Index = () => {
         )}
 
         {/* Float Overview */}
-        <FloatOverview />
+        <FloatOverview connected={connected} />
 
         {/* Upload Section */}
         <UploadSection />

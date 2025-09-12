@@ -137,7 +137,6 @@ export const FloatOverview = ({ connected = true }: { connected?: boolean }) => 
     const fetchFloats = async () => {
       if (!connected) {
         setFloats([]);
-        setTotalCount(0);
         setLoading(false);
         return;
       }

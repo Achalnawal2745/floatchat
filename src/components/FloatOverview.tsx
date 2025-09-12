@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, MapPin, Calendar, Building } from "lucide-react";
-import { buildApiUrl, API_CONFIG, getApiBaseUrl } from "@/config/api";
+import { buildApiUrl, API_CONFIG } from "@/config/api";
 
 interface FloatData {
   float_id: number;

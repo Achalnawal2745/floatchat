@@ -192,6 +192,22 @@ export const FloatOverview = ({ connected = true }: { connected?: boolean }) => 
     );
   }
 
+  if (error) {
+    return (
+      <Card className="shadow-ocean">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-3">
+            <Activity className="h-6 w-6 text-primary" />
+            <span>Float Network</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm text-destructive">{error}</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (loading) {
     return (
       <Card className="shadow-ocean">

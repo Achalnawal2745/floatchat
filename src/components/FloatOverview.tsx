@@ -180,7 +180,7 @@ export const FloatOverview = ({ connected = true }: { connected?: boolean }) => 
         <CardHeader>
           <CardTitle className="flex items-center space-x-3">
             <Activity className="h-6 w-6 text-primary" />
-            <span>Active Float Network</span>
+            <span>Float Network</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -198,7 +198,7 @@ export const FloatOverview = ({ connected = true }: { connected?: boolean }) => 
         <CardHeader>
           <CardTitle className="flex items-center space-x-3">
             <Activity className="h-6 w-6 text-primary" />
-            <span>Active Float Network</span>
+            <span>Float Network</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -222,7 +222,7 @@ export const FloatOverview = ({ connected = true }: { connected?: boolean }) => 
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center space-x-3">
             <Activity className="h-6 w-6 text-primary" />
-            <span>Active Float Network</span>
+            <span>Float Network</span>
           </CardTitle>
           <Badge variant="secondary" className="text-lg px-3 py-1">
             {activeFloats.length} Active • {totalCount} Total

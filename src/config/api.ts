@@ -59,6 +59,21 @@ export const buildApiUrl = (endpoint: string, params?: Record<string, string>) =
   return full;
 };
 
+// Fetch helper with abort/timeout support to prevent long hangs
+export const fetchWithTimeout = async (
+  input: RequestInfo | URL,
+  init: (RequestInit & { timeoutMs?: number }) = {}
+): Promise<Response> => {
+  const { timeoutMs = 8000, signal, ...rest } = init;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(new DOMException('Timeout', 'TimeoutError')), timeoutMs);
+  try {
+    return await fetch(input, { ...rest, signal: signal ?? controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+};
+
 // Helper function to check if we're in development
 export const isDevelopment = () => {
   return import.meta.env.DEV;

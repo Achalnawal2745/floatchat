@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
-import { buildApiUrl, getApiBaseUrl, setApiBaseUrl, API_CONFIG } from "@/config/api";
+import { buildApiUrl, getApiBaseUrl, setApiBaseUrl, API_CONFIG, fetchWithTimeout } from "@/config/api";
 
 interface ConnectionStatusProps {
   onStatusChange?: (connected: boolean) => void;
@@ -18,21 +18,40 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ onStatusChan
   const checkConnection = async () => {
     setIsChecking(true);
     try {
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.HEALTH), {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const candidates: string[] = [];
+      // Current configured base
+      candidates.push(buildApiUrl(API_CONFIG.ENDPOINTS.HEALTH));
+      if (typeof window !== 'undefined') {
+        const origin = window.location.origin.replace(/\/$/, '');
+        candidates.push(`${origin}${API_CONFIG.ENDPOINTS.HEALTH}`);
+        candidates.push(`${origin}/api${API_CONFIG.ENDPOINTS.HEALTH}`);
+      }
 
-      const connected = response.ok;
+      let successUrl: string | null = null;
+      let resp: Response | null = null;
+      for (const url of candidates) {
+        try {
+          const r = await fetchWithTimeout(url, { method: 'GET', headers: { 'Content-Type': 'application/json' }, timeoutMs: 5000 });
+          if (r.ok) { successUrl = url; resp = r; break; }
+        } catch {}
+      }
+
+      const connected = !!resp && resp.ok;
       setIsConnected(connected);
       setLastChecked(new Date());
       onStatusChange?.(connected);
 
-      if (connected) {
-        const data = await response.json();
-        console.log('Backend health check:', data);
+      if (connected && successUrl) {
+        // Derive base from successful health URL (strip trailing '/health')
+        const derivedBase = successUrl.replace(/\/?health\/?$/i, '');
+        if (derivedBase && derivedBase !== getApiBaseUrl()) {
+          setApiBaseUrl(derivedBase);
+          setBaseUrl(derivedBase);
+        }
+        try {
+          const data = await resp!.json();
+          console.log('Backend health check:', data);
+        } catch {}
       }
     } catch (error) {
       console.warn('Connection check failed');

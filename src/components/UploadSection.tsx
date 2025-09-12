@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,32 @@ export const UploadSection = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
+  const [uploadAvailable, setUploadAvailable] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    let cancelled = false;
+    const checkEndpoint = async () => {
+      try {
+        const url = buildApiUrl(API_CONFIG.ENDPOINTS.UPLOAD_NETCDF);
+        const resp = await fetch(url, { method: 'OPTIONS' });
+        if (!cancelled) {
+          // Treat 404 as unavailable; 200/204/405 likely means route exists or server responds
+          setUploadAvailable(resp.status !== 404);
+        }
+      } catch {
+        if (!cancelled) setUploadAvailable(false);
+      }
+    };
+    checkEndpoint();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleFileSelect = () => {
+    if (uploadAvailable === false) return;
     fileInputRef.current?.click();
   };
 
@@ -39,7 +61,6 @@ export const UploadSection = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Simulate progress for better UX
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
@@ -71,7 +92,6 @@ export const UploadSection = () => {
       });
     } finally {
       setIsUploading(false);
-      // Reset after a delay
       setTimeout(() => {
         setUploadProgress(0);
         setUploadStatus("idle");
@@ -111,8 +131,14 @@ export const UploadSection = () => {
       </CardHeader>
       
       <CardContent className="space-y-6">
-        <div 
-          className={`border-2 rounded-lg p-8 text-center transition-smooth cursor-pointer ${getStatusColor()}`}
+        {uploadAvailable === false && (
+          <div className="p-4 rounded-lg border border-warning/30 bg-warning/5 text-sm">
+            NetCDF upload is disabled because the backend does not expose an upload endpoint. If needed, ingest data via the backend's /ingest_metadata API.
+          </div>
+        )}
+
+        <div
+          className={`border-2 rounded-lg p-8 text-center transition-smooth ${uploadAvailable === false ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${getStatusColor()}`}
           onClick={handleFileSelect}
         >
           <div className="space-y-4">
@@ -125,15 +151,17 @@ export const UploadSection = () => {
                 </div>
               )}
             </div>
-            
+
             <div>
               <h3 className="text-lg font-semibold">
                 {isUploading ? "Uploading..." : "Drop NetCDF files here"}
               </h3>
               <p className="text-muted-foreground">
-                {isUploading 
-                  ? "Processing your oceanographic data..." 
-                  : "Click to browse or drag and drop NetCDF (.nc) files"
+                {uploadAvailable === false
+                  ? "Upload unavailable on current backend"
+                  : isUploading
+                    ? "Processing your oceanographic data..."
+                    : "Click to browse or drag and drop NetCDF (.nc) files"
                 }
               </p>
             </div>

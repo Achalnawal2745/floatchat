@@ -23,6 +23,12 @@ export const getApiBaseUrl = (): string => {
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) return stored;
+      const host = window.location.hostname || '';
+      const isLocal = /^(localhost|127\.0\.0\.1)$/i.test(host);
+      const isDev = !!(import.meta as any)?.env?.DEV;
+      if (!isDev && !isLocal) {
+        return window.location.origin;
+      }
     }
   } catch {}
   return API_CONFIG.BASE_URL;
@@ -57,6 +63,21 @@ export const buildApiUrl = (endpoint: string, params?: Record<string, string>) =
     return u.toString();
   }
   return full;
+};
+
+// Fetch helper with abort/timeout support to prevent long hangs
+export const fetchWithTimeout = async (
+  input: RequestInfo | URL,
+  init: (RequestInit & { timeoutMs?: number }) = {}
+): Promise<Response> => {
+  const { timeoutMs = 8000, signal, ...rest } = init;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(new DOMException('Timeout', 'TimeoutError')), timeoutMs);
+  try {
+    return await fetch(input, { ...rest, signal: signal ?? controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
 };
 
 // Helper function to check if we're in development

@@ -246,12 +246,6 @@ export const FloatOverview = ({ connected = true }: { connected?: boolean }) => 
                       <Badge variant="outline" className="text-xs">
                         {float_data.project_name}
                       </Badge>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${float_data.is_active ? "border-success text-success" : "border-muted-foreground text-muted-foreground"}`}
-                      >
-                        {float_data.is_active ? "Active" : "Inactive"}
-                      </Badge>
                     </div>
                   </div>
 

@@ -23,6 +23,12 @@ export const getApiBaseUrl = (): string => {
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) return stored;
+      const host = window.location.hostname || '';
+      const isLocal = /^(localhost|127\.0\.0\.1)$/i.test(host);
+      const isDev = !!(import.meta as any)?.env?.DEV;
+      if (!isDev && !isLocal) {
+        return window.location.origin;
+      }
     }
   } catch {}
   return API_CONFIG.BASE_URL;

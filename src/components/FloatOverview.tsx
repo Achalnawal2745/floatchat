@@ -173,7 +173,6 @@ export const FloatOverview = ({ connected = true }: { connected?: boolean }) => 
     return () => { cancelled = true; };
   }, [connected]);
 
-  const activeFloats = useMemo(() => floats.filter(f => f.is_active), [floats]);
 
   if (!connected) {
     return (

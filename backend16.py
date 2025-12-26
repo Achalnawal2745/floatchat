@@ -773,6 +773,40 @@ class OptimizedArgoMCPServer:
                         "confidence": 0.0
                     }
         
+        # Validate and Type Cast Parameters
+        processed_params = provided_params.copy()
+        
+        # Numeric parameters that need integer casting
+        int_params = ['float_id', 'cycle_number', 'limit', 'offset', 'radius']
+        for param in int_params:
+            if param in processed_params:
+                try:
+                    val = processed_params[param]
+                    if val is not None and val != "":
+                        # Handle potential string format "2902296"
+                        processed_params[param] = int(float(str(val)))
+                except (ValueError, TypeError):
+                    logger.warning(f"Could not cast {param}='{processed_params[param]}' to int")
+                    # We keep the original value, let the tool handle the error or fail gracefully
+                    
+        # List parameters
+        if tool == 'compare_floats' or tool == 'get_multiple_trajectories':
+            if 'float_ids' in processed_params:
+                val = processed_params['float_ids']
+                if isinstance(val, str):
+                    # Handle comma-separated string
+                    try:
+                        processed_params['float_ids'] = [int(x.strip()) for x in val.split(',')]
+                    except:
+                        pass
+                elif isinstance(val, list):
+                    # Ensure all elements are ints
+                    try:
+                        processed_params['float_ids'] = [int(x) for x in val]
+                    except:
+                        pass
+                        
+        result['parameters'] = processed_params
         return result
 
     # ==================== LAYER 2: COMPREHENSIVE AI-POWERED ORCHESTRATION ====================

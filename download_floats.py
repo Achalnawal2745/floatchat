@@ -1,67 +1,73 @@
 #!/usr/bin/env python3
 """
-STEP 1: Download ARGO Float Files
-
-Edit FLOAT_IDS below, then run: python download_floats.py
+Download ARGO Float NetCDF Files (HTTP Version)
+Downloads both *_meta.nc and *_prof.nc files for specified floats
 """
 
-from ftplib import FTP
 import os
+import requests
 
 # ============ EDIT THIS LIST ============
-FLOAT_IDS = [
-    '1902669',
-    '1902670', 
-    '2902676',
+FLOAT_IDS = [ 
+    '2903894'
 ]
 # ========================================
 
-FTP_SERVER = 'ftp.ifremer.fr'
-FTP_PATH = '/ifremer/argo/dac/incois'
+# Configuration
+BASE_URL = 'http://data-argo.ifremer.fr/dac/incois'
 DATA_DIR = 'netcdf_data'
 
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
+
 def download_float(float_id):
-    """Download metadata and profile files"""
+    """Download meta and prof files for a float via HTTP"""
     print(f"\n[Float {float_id}]")
     
-    try:
-        ftp = FTP(FTP_SERVER, timeout=30)
-        ftp.login()
-        ftp.cwd(f"{FTP_PATH}/{float_id}")
+    files = [f'{float_id}_meta.nc', f'{float_id}_prof.nc']
+    success_count = 0
+    
+    for filename in files:
+        local_path = os.path.join(DATA_DIR, filename)
         
-        files = [f'{float_id}_meta.nc', f'{float_id}_prof.nc']
+        # Skip if file exists and is not empty
+        if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+            print(f"  [OK] {filename} (already exists)")
+            success_count += 1
+            continue
         
-        for filename in files:
-            local_path = os.path.join(DATA_DIR, filename)
+        # Download via HTTP
+        url = f"{BASE_URL}/{float_id}/{filename}"
+        print(f"  Downloading {filename}...")
+        
+        try:
+            response = requests.get(url, timeout=60)
             
-            if os.path.exists(local_path):
-                print(f"  ✓ {filename} (already exists)")
-                continue
-            
-            print(f"  Downloading {filename}...")
-            with open(local_path, 'wb') as f:
-                ftp.retrbinary(f'RETR {filename}', f.write)
-            
-            size = os.path.getsize(local_path)
-            print(f"  ✓ {filename} ({size:,} bytes)")
-        
-        ftp.quit()
-        return True
-        
-    except Exception as e:
-        print(f"  ✗ Error: {e}")
-        return False
+            if response.status_code == 200:
+                with open(local_path, 'wb') as f:
+                    f.write(response.content)
+                
+                size = os.path.getsize(local_path)
+                print(f"  [OK] {filename} ({size:,} bytes)")
+                success_count += 1
+            else:
+                print(f"  [FAIL] Error: HTTP {response.status_code} - File not found")
+        except Exception as e:
+            print(f"  [ERROR] {e}")
+    
+    return success_count == 2
 
-if __name__ == "__main__":
-    os.makedirs(DATA_DIR, exist_ok=True)
+if __name__ == '__main__':
+    print("=" * 60)
+    print(f"Downloading {len(FLOAT_IDS)} floats via HTTP...")
+    print("=" * 60)
     
-    print("="*60)
-    print(f"Downloading {len(FLOAT_IDS)} floats...")
-    print("="*60)
+    success = 0
+    for float_id in FLOAT_IDS:
+        if download_float(float_id):
+            success += 1
     
-    success = sum(download_float(fid) for fid in FLOAT_IDS)
-    
-    print(f"\n{'='*60}")
+    print("\n" + "=" * 60)
     print(f"Complete: {success}/{len(FLOAT_IDS)} floats downloaded")
-    print(f"{'='*60}")
+    print("=" * 60)
     print("\nNext step: python ingest_floats.py")

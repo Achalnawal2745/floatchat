@@ -12,15 +12,14 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from ftplib import FTP
+import requests
 from typing import Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
-# FTP Configuration
-FTP_SERVER = 'ftp.ifremer.fr'
-FTP_PATH = '/ifremer/argo/dac/incois'
+# HTTP Configuration (using HTTP instead of HTTPS to avoid 403 errors)
+BASE_URL = 'http://data-argo.ifremer.fr/dac/incois'
 DATA_DIR = 'netcdf_data'
 
 # Ensure data directory exists
@@ -85,7 +84,7 @@ def safe_date(val):
 
 def download_float(float_id: str, data_dir: str = DATA_DIR) -> Dict[str, Any]:
     """
-    Download metadata and profile files for a float
+    Download metadata and profile files for a float using HTTP
     
     Returns:
         {
@@ -97,11 +96,7 @@ def download_float(float_id: str, data_dir: str = DATA_DIR) -> Dict[str, Any]:
         }
     """
     try:
-        logger.info(f"Downloading float {float_id}")
-        
-        ftp = FTP(FTP_SERVER, timeout=30)
-        ftp.login()
-        ftp.cwd(f"{FTP_PATH}/{float_id}")
+        logger.info(f"Downloading float {float_id} via HTTP")
         
         files_to_download = [f'{float_id}_meta.nc', f'{float_id}_prof.nc']
         downloaded = []
@@ -110,19 +105,37 @@ def download_float(float_id: str, data_dir: str = DATA_DIR) -> Dict[str, Any]:
             local_path = os.path.join(data_dir, filename)
             
             if os.path.exists(local_path):
-                logger.info(f"File already exists: {filename}")
+                file_size = os.path.getsize(local_path)
+                if file_size > 0:  # Check if file is not empty
+                    logger.info(f"File already exists: {filename}")
+                    downloaded.append(filename)
+                    continue
+                else:
+                    # Delete empty file
+                    os.remove(local_path)
+                    logger.info(f"Removed empty file: {filename}")
+            
+            # Download via HTTP
+            url = f"{BASE_URL}/{float_id}/{filename}"
+            logger.info(f"Downloading from {url}...")
+            
+            response = requests.get(url, timeout=60, verify=False)  # Skip SSL verification
+            
+            if response.status_code == 200:
+                with open(local_path, 'wb') as f:
+                    f.write(response.content)
+                
+                size = os.path.getsize(local_path)
+                logger.info(f"Downloaded {filename} ({size:,} bytes)")
                 downloaded.append(filename)
-                continue
-            
-            logger.info(f"Downloading {filename}...")
-            with open(local_path, 'wb') as f:
-                ftp.retrbinary(f'RETR {filename}', f.write)
-            
-            size = os.path.getsize(local_path)
-            logger.info(f"Downloaded {filename} ({size:,} bytes)")
-            downloaded.append(filename)
-        
-        ftp.quit()
+            else:
+                logger.error(f"HTTP {response.status_code} for {filename}")
+                return {
+                    "success": False,
+                    "float_id": float_id,
+                    "error": f"HTTP {response.status_code}: {filename} not found",
+                    "message": f"Download failed: File not found on server"
+                }
         
         return {
             "success": True,
@@ -131,6 +144,22 @@ def download_float(float_id: str, data_dir: str = DATA_DIR) -> Dict[str, Any]:
             "message": f"Downloaded {len(downloaded)}/2 files for float {float_id}"
         }
         
+    except requests.exceptions.Timeout:
+        logger.error(f"Download timeout for float {float_id}")
+        return {
+            "success": False,
+            "float_id": float_id,
+            "error": "Connection timeout",
+            "message": f"Download failed: Connection timeout"
+        }
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Download failed for float {float_id}: {e}")
+        return {
+            "success": False,
+            "float_id": float_id,
+            "error": str(e),
+            "message": f"Download failed: {str(e)}"
+        }
     except Exception as e:
         logger.error(f"Download failed for float {float_id}: {e}")
         return {
@@ -139,6 +168,7 @@ def download_float(float_id: str, data_dir: str = DATA_DIR) -> Dict[str, Any]:
             "error": str(e),
             "message": f"Download failed: {str(e)}"
         }
+
 
 # ==================== INGESTION FUNCTIONS ====================
 

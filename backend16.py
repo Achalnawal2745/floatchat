@@ -1484,6 +1484,44 @@ class OptimizedArgoMCPServer:
             if text:
                 response["ai_synthesized_response"] = text
                 break
+        
+        # 2b. Generate text from raw data if no AI response exists
+        if not response["ai_synthesized_response"]:
+            # Check for common data patterns and generate appropriate text
+            result_data = raw_data.get("result", raw_data)
+            
+            # count_floats response
+            if "total_floats" in result_data:
+                total = result_data.get("total_floats", 0)
+                active = result_data.get("active_floats", 0)
+                region = result_data.get("region")
+                
+                if region:
+                    response["ai_synthesized_response"] = f"Found {total} floats in the {region.replace('_', ' ')} region ({active} active in the last 30 days)."
+                else:
+                    response["ai_synthesized_response"] = f"Total floats in database: {total} ({active} active in the last 30 days)."
+            
+            # list_all_floats response
+            elif "floats" in result_data and isinstance(result_data["floats"], list):
+                count = len(result_data["floats"])
+                response["ai_synthesized_response"] = f"Found {count} floats in the database."
+            
+            # Single float profile (get_float_profile)
+            elif "metadata" in result_data and "measurements" in result_data:
+                meta = result_data["metadata"]
+                fid = meta.get("float_id")
+                project = meta.get("project_name", "Unknown")
+                institute = meta.get("operating_institute", "Unknown")
+                launch_date = meta.get("launch_date")
+                meas_count = len(result_data.get("measurements", []))
+                
+                response["ai_synthesized_response"] = f"Float {fid} - Project: {project}, Institute: {institute}, Launched: {launch_date}, Measurements: {meas_count}"
+            
+            # Legacy single float profile
+            elif "float_id" in result_data and "launch_date" in result_data:
+                fid = result_data["float_id"]
+                status = result_data.get("status", "unknown")
+                response["ai_synthesized_response"] = f"Float {fid} - Status: {status}"
 
         # 3. Detect MAP and GRAPH data (The "Master Translator")
         # Handle cases where the data is already in the 'formats' object (Layer 2)

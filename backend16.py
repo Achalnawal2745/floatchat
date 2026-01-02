@@ -1489,9 +1489,15 @@ class OptimizedArgoMCPServer:
         if not response["ai_synthesized_response"]:
             # Check for common data patterns and generate appropriate text
             result_data = raw_data.get("result", raw_data)
+            logger.info(f"STANDARDIZE RAW KEYS: {list(result_data.keys())}")
             
+            # get_multiple_trajectories (Must be BEFORE count_floats because it also has total_floats)
+            if "trajectories" in result_data and "type" in result_data and result_data["type"] == "multiple_trajectories":
+                count = len(result_data.get("trajectories", {}))
+                response["ai_synthesized_response"] = f"Showing trajectories for {count} floats."
+
             # count_floats response
-            if "total_floats" in result_data:
+            elif "total_floats" in result_data:
                 total = result_data.get("total_floats", 0)
                 active = result_data.get("active_floats", 0)
                 region = result_data.get("region")
@@ -1522,6 +1528,61 @@ class OptimizedArgoMCPServer:
                 fid = result_data["float_id"]
                 status = result_data.get("status", "unknown")
                 response["ai_synthesized_response"] = f"Float {fid} - Status: {status}"
+
+            # get_depth_profile
+            elif "plot_data" in result_data:
+                pd = result_data.get("plot_data", {})
+                meta = pd.get("metadata", {})
+                param = meta.get("parameter", "parameter")
+                fid = meta.get("float_id", "Unknown")
+                response["ai_synthesized_response"] = f"Depth profile for {param} from float {fid}."
+
+            # get_trajectory (Single)
+            elif "map_data" in result_data:
+                md = result_data.get("map_data", {})
+                if md.get("type") == "trajectory":
+                    points = md.get("viz", {}).get("spec", {}).get("points", [])
+                    count = len(points)
+                    response["ai_synthesized_response"] = f"Trajectory path with {count} points."
+
+            # get_timeseries
+            elif "timeseries_data" in result_data:
+                td = result_data.get("timeseries_data", {})
+                meta = td.get("metadata", {})
+                param = meta.get("parameter", "parameter")
+                fid = meta.get("float_id", "Unknown")
+                count = len(td.get("data", {}).get("values", []))
+                response["ai_synthesized_response"] = f"Time series for {param} from float {fid} ({count} points)."
+
+            # compare_floats
+            elif "comparison" in result_data:
+                comp = result_data.get("comparison", {})
+                floats = list(comp.keys())
+                response["ai_synthesized_response"] = f"Comparison of {len(floats)} floats: {', '.join(map(str, floats))}."
+
+            # get_floats_in_region
+            elif "floats" in result_data and "region" in result_data and "float_count" in result_data:
+                count = result_data.get("float_count", 0)
+                region = result_data.get("region", "unknown")
+                response["ai_synthesized_response"] = f"Found {count} floats in the {region.replace('_', ' ')} region."
+
+            # get_region_data
+            elif "region_metadata" in result_data:
+                meta = result_data.get("region_metadata", {})
+                region = meta.get("name", "Unknown")
+                total = meta.get("total_floats", 0)
+                response["ai_synthesized_response"] = f"Region {region} contains {total} floats."
+
+            # search_floats_by_location / search_floats_semantic
+            elif "search_results" in result_data:
+                results = result_data.get("search_results", [])
+                count = len(results)
+                response["ai_synthesized_response"] = f"Search found {count} results."
+
+            # get_float_statistics
+            elif "statistics" in result_data:
+                stats = result_data.get("statistics", {})
+                response["ai_synthesized_response"] = "Float statistics generated."
 
         # 3. Detect MAP and GRAPH data (The "Master Translator")
         # Handle cases where the data is already in the 'formats' object (Layer 2)
@@ -2936,4 +2997,4 @@ async def admin_ingest_float(payload: Dict[str, Any]):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend16:app", host="0.0.0.0", port=8000, reload=True)

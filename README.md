@@ -32,7 +32,7 @@ Float Chat is an intelligent chatbot that lets you explore ocean data from ARGO 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/floatchat.git
+   git clone https://github.com/Achalnawal2745/floatchat.git
    cd floatchat
    ```
 
@@ -211,7 +211,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-For questions, issues, or feature requests, please [open an issue](https://github.com/yourusername/float-chat/issues) on GitHub.
+For questions, issues, or feature requests, please [open an issue](https://github.com/Achalnawal2745/float-chat/issues) on GitHub.
 
 ---
 

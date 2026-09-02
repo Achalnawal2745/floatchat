@@ -4,11 +4,15 @@ echo ARGO Ocean Intelligence System
 echo ========================================
 echo.
 echo Starting backend server...
-start "Backend" cmd /k "python -m uvicorn backend16:app --reload"
+:: Navigates to venv, activates it, and runs uvicorn
+start "Backend" cmd /k ".\venv\Scripts\activate && python -m uvicorn backend16:app --reload"
+
 timeout /t 60 /nobreak > nul
 echo.
 echo Starting frontend...
-start "Frontend" cmd /k "streamlit run app.py"
+:: Navigates to venv, activates it, and runs streamlit
+start "Frontend" cmd /k ".\venv\Scripts\activate && streamlit run app.py"
+
 echo.
 echo ========================================
 echo System started!
